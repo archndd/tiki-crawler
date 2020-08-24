@@ -1,5 +1,5 @@
-from utils import CURRENTDATE
-from widget import ChecklistBox, RadioBox
+from .utils import CURRENTDATE
+from .widget import ChecklistBox, RadioBox
 
 import tkinter as tk
 import tkinter.font as tkFont

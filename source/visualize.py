@@ -1,4 +1,4 @@
-from utils import CURRENTDATE
+from .utils import CURRENTDATE
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.backend_bases import key_press_handler

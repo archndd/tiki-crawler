@@ -2,7 +2,7 @@
 from bs4 import BeautifulSoup
 import requests, json, logging, os, re
 import urllib.request
-from utils import CURRENTDATE, ABS_PATH
+from .utils import CURRENTDATE, ABS_PATH
 
 
 class PriceBook:
