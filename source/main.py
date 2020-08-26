@@ -1,5 +1,5 @@
-from .utils import CURRENTDATE
-from .widget import ChecklistBox, RadioBox
+from utils import CURRENTDATE
+from widget import ChecklistBox, RadioBox
 
 import tkinter as tk
 import tkinter.font as tkFont
@@ -19,7 +19,6 @@ from visualize import Visualizer
 class BetterButton(tk.Button):
     def __init__(self, *args, width=20, height=2, **kwargs):
         super().__init__(*args, width=width, height=height, **kwargs)
-        # self.configure(font=font)
 
 class BetterEntry(tk.Entry):
     def __init__(self, *args, **kwargs):
@@ -87,12 +86,10 @@ class EditFrame(tk.Frame):
         self.save_button = BetterButton(self, text="Save", command=lambda: [price_book.dump_to_json(), self.update_status_label("Dumping to json done")])
         self.update_button = BetterButton(self, text="Update data", command=self.update_price_book)
         self.view_selected_button = BetterButton(self, text="View selected", command=self.view_selected)
-        # self.insert_entry = BetterEntry(self, width=10, font=font, highlightbackground="black", borderwidth=10, relief="flat", selectbackground="#DFDFDF")
         self.insert_entry = BetterEntry(self, width=10, highlightbackground="black", borderwidth=10, relief="flat", selectbackground="#DFDFDF")
         self.insert_button = BetterButton(self, text="Add", command=self.insert)
         self.status_label = tk.Label(self, text="Waiting", anchor='w', background="#EEEEEE")
 
-        # self.status_label.configure(font=font, width=12, height=1)
         self.status_label.configure(width=12, height=1)
 
         for i in range(3):
@@ -142,9 +139,9 @@ class EditFrame(tk.Frame):
         success, prod_id = price_book.insert_product(url, "INSERT from main")
         if success:
             prod = price_book[prod_id]
-            text = " {} - {} | {}".format(prod["name"], prod["author"], "Not update yet")
+            text = " {} - {} | {}".format(prod["name"], prod["author"]["name"], "Not update yet")
             if CURRENTDATE in prod["price"]:
-                text = " {} - {} | {}".format(prod["name"], prod["author"], format(prod["price"][CURRENTDATE]["price"], ','))
+                text = " {} - {} | {}".format(prod["name"], prod["author"]["name"], format(prod["price"][CURRENTDATE]["price"], ','))
             self.check_box.insert(text=text, cb_id=prod_id, onvalue=prod_id, offvalue="")
 
             self.update_status_label("Insert done")
@@ -167,38 +164,11 @@ class EditFrame(tk.Frame):
             count += 1
 
         if count != 0:
-            self.parent.graph_frame.visualizer_frame.update_graph()
             self.update_status_label("Delete {} items".format(count))
+            self.parent.graph_frame.visualizer_frame.update_graph()
 
     def view_prod_detail(self, prod_id):
         win = DetailWindow(self, prod_id)
-        # win = tk.Toplevel()
-        # win.wm_title("hello")
-        # win.geometry("900x600")
-
-        # small_visualizer = Visualizer(win, None)
-        # info_frame = tk.Frame(win)
-
-        # prod = price_book[prod_id]
-        # date = []
-        # for d in prod["price"].keys():
-        #     d = d.split('-')[0:2]
-        #     date.append('-'.join(d))
-        # price = [k["price"] for k in prod["price"].values()]
-        # small_visualizer.plot_data(date, price)
-
-        # thumbnail = ImageTk.PhotoImage(Image.open(prod["thumbnail"]).resize((150, 150)))
-        # thumbnail_label = tk.Label(info_frame, image=thumbnail, anchor="w")
-        # thumbnail_label.image = thumbnail
-        # name_label = tk.Label(info_frame, text=prod["name"], anchor="w")
-        # producer_label = tk.Label(info_frame, text=prod["author"]["name"], anchor="w")
-
-        # thumbnail_label.grid(row=0, rowspan=2, column=0)
-        # name_label.grid(row=0, column=1)
-        # producer_label.grid(row=1, column=1, sticky="w")
-
-        # info_frame.pack(fill="x", expand=False)
-        # small_visualizer.pack(fill="both", expand=True)
 
 
 class GraphFrame(tk.Frame):
@@ -215,8 +185,10 @@ class GraphFrame(tk.Frame):
         self.upper_bound_entry = BetterEntry(self)
         self.lower_bound_entry = BetterEntry(self)
 
+        self.upper_bound_entry.bind("<Return>", self.filter)
+        self.lower_bound_entry.bind("<Return>", self.filter)
+
         for i in range(4):
-            # tk.Grid.rowconfigure(self, i, weight=1)
             tk.Grid.columnconfigure(self, i, weight=1)
         tk.Grid.rowconfigure(self, 0, weight=1)
 
@@ -225,12 +197,12 @@ class GraphFrame(tk.Frame):
         self.upper_bound_label.grid(row=1, column=1, padx=10, pady=10)
         self.lower_bound_entry.grid(row=2, column=0, padx=10, pady=10)
         self.upper_bound_entry.grid(row=2, column=1, padx=10, pady=10)
-        self.radio_box.grid(row=2, column=2, padx=10, pady=10)
-        self.ok_button.grid(row=2, column=3, padx=10, pady=10)
+        self.radio_box.grid(row=1, column=2, rowspan=2, padx=10, pady=10)
+        self.ok_button.grid(row=1, column=3, rowspan=2, padx=10, pady=10)
 
         self.ok_button.invoke()
 
-    def filter(self):
+    def filter(self, event=None):
         lower = self.lower_bound_entry.get()
         upper = self.upper_bound_entry.get()
         key = self.radio_box.get_checked_items()
@@ -265,7 +237,6 @@ class MainApplication(ttk.Notebook):
         s.theme_use("MyStyle")
         bg = "#EEEEEE"
 
-        # self.configure(borderwidth=0)
         self.edit_frame = EditFrame(self, background=bg)
         self.graph_frame = GraphFrame(self, background=bg)
         self.add(self.graph_frame, text="Graph")
@@ -273,7 +244,6 @@ class MainApplication(ttk.Notebook):
         self.add(self.edit_frame, text="Edit")
         self.pack(padx=20, pady=20, expand=True, fill="both")
 
-        # self.edit_frame.pack(padx=20, pady=20, fill=tk.BOTH, expand=True)
 
 if __name__ == "__main__":
     price_book = PriceBook()

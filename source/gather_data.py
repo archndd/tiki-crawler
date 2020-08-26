@@ -2,7 +2,7 @@
 from bs4 import BeautifulSoup
 import requests, json, logging, os, re
 import urllib.request
-from .utils import CURRENTDATE, ABS_PATH
+from utils import CURRENTDATE, ABS_PATH
 
 
 class PriceBook:
@@ -54,7 +54,6 @@ class PriceBook:
                             tmp["brand"][bf] = product_data["brand"][0].get(bf, "")
                         if tmp["brand"]["id"] != '':
                             tmp["brand"]["id"] = int(tmp["brand"]["id"])
-                    # elif tmp["categoties"]["id"] == 
 
                     tmp["price"] = {}
                     if CURRENTDATE not in tmp["price"]:

@@ -1,4 +1,4 @@
-from .utils import CURRENTDATE
+from utils import CURRENTDATE
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 from matplotlib.backend_bases import key_press_handler
@@ -11,6 +11,7 @@ import tkinter as tk
 import numpy as np
 import logging
 import webbrowser
+import datetime
 from gather_data import PriceBook
 
 
@@ -24,7 +25,7 @@ class Visualizer(tk.Frame):
         self.sub_graph = self.figure.add_subplot(111)
         box = self.sub_graph.get_position()
         # self.sub_graph.set_position([box.x0, box.y0, box.width * 0.8, box.height])
-        self.figure.subplots_adjust(left=0.05, right=0.9, bottom=0.05, top=0.98)
+        self.figure.subplots_adjust(left=0.05, right=0.84, bottom=0.05, top=0.98)
 
         self.book_url = {}
         self.mode = ''
@@ -37,42 +38,41 @@ class Visualizer(tk.Frame):
         self.toolbar.update()
         self.canvas.get_tk_widget().pack(side='top', fill='both', expand=True)
 
-        self.canvas.mpl_connect("key_press_event", self.on_key_press)
+        self.canvas.mpl_connect("key_press_event", lambda event: key_press_handler(event, self.canvas, self.toolbar))
 
-    def on_key_press(self, event):
-        print("you pressed {}".format(event.key))
-        key_press_handler(event, canvas, toolbar)
-
-    def plot_data_with_constrain(self, constrain, key, force_update=False):
-        # TODO Do this too
-        # mode = constrain + ' ' + key
-        # if self.mode == mode and not force_update:
-        #     return
-        # self.mode = mode 
+    def plot_data_with_constrain(self, constrain, key):
+        if key is not None:
+            self.key = key
+        if constrain is not None:
+            self.constrain = constrain
 
         self.book_url = {}
-
         self.sub_graph.clear()
 
         # self.sub_graph.set_xlabel("Date")
-        self.sub_graph.set_ylabel(key)
+        self.sub_graph.set_ylabel(self.key)
+
+        tmp = next(iter(self.price_book.data.values()))
+        if CURRENTDATE not in tmp["price"]:
+            self.price_book.update()
+
         # Plot sorted data by key so that line and legend have the same order
-        for prod_id, prod in sorted(self.price_book.data.items(), key=lambda prod: prod[1]["price"][CURRENTDATE][key], reverse=True):
+        for prod_id, prod in sorted(self.price_book.data.items(), key=lambda prod: prod[1]["price"][CURRENTDATE][self.key], reverse=True):
             try:
-                if constrain(prod):
+                if self.constrain(prod):
                     date = []
                     for d in prod["price"].keys():
-                        d = d.split('-')[0:2]
-                        date.append('-'.join(d))
-                    price = [k[key] for k in prod["price"].values()]
-                    self.sub_graph.plot(date, price, marker="o", label=prod["name"])
+                        date.append(datetime.datetime.strptime(d, '%d-%m-%Y'))
+                    date =  matplotlib.dates.date2num(date)
+                    price = [k[self.key] for k in prod["price"].values()]
+                    self.sub_graph.plot_date(date, price, '-', marker="o", label=prod["name"])
                     self.book_url[prod["name"]] = self.price_book.data[prod_id]["url_path"]
                     for x,y in zip(date, price):
                         self.sub_graph.annotate(self.reformat_large_tick_values(y), (x, y), textcoords="offset points", xytext=(0, 10), ha='center')
             except:
                 pass
-
-        self.sub_graph.get_yaxis().set_major_formatter(matplotlib.ticker.FuncFormatter(self.reformat_large_tick_values))
+        self.sub_graph.xaxis.set_major_formatter(matplotlib.dates.DateFormatter("%d-%m"))
+        self.sub_graph.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(self.reformat_large_tick_values))
         legend = self.sub_graph.legend(loc='center left', bbox_to_anchor=(1, 0.5))
         for line in legend.get_lines():
             line.set_picker(True)
@@ -102,8 +102,7 @@ class Visualizer(tk.Frame):
         webbrowser.open("https://tiki.vn/{}".format(url))
 
     def update_graph(self):
-        # TODO Fix this things
-        self.plot_data(*self.mode.split(), force_update=True)
+        self.plot_data_with_constrain(None, None)
 
     def reformat_large_tick_values(self, tick_val, pos=None):
         """
