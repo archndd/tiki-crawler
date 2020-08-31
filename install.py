@@ -14,4 +14,3 @@ os.makedirs(os.path.join(path, 'thumbnails'))
 config = {"abs_path": path}
 with open('config.json', 'w') as f:
     json.dump(config, f, indent=4)
-
