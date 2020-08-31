@@ -1,5 +1,30 @@
 import tkinter as tk
 
+
+class BetterButton(tk.Button):
+    def __init__(self, *args, width=20, height=2, **kwargs):
+        super().__init__(*args, width=width, height=height, **kwargs)
+
+
+class BetterEntry(tk.Entry):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.bind("<<Paste>>", self.custom_paste)
+        self.bind('<Control-a>', self.select_all)
+
+    def custom_paste(self, event=None):
+        try:
+            event.widget.delete("sel.first", "sel.last")
+        except:
+            pass
+        event.widget.insert("insert", event.widget.clipboard_get())
+        return "break"
+
+    def select_all(self, event=None):
+        self.select_range(0, 'end')
+        return 'break'
+
+
 class ChecklistBox(tk.Frame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)

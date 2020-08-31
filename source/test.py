@@ -1,102 +1,77 @@
 import matplotlib.pyplot as plt
-import numpy as np
+plt.rcParams['toolbar'] = 'toolmanager'
+from matplotlib.backend_tools import ToolBase, ToolToggleBase
 
-class BlitManager:
-    def __init__(self, canvas, animated_artists=()):
-        """
-        Parameters
-        ----------
-        canvas : FigureCanvasAgg
-            The canvas to work with, this only works for sub-classes of the Agg
-            canvas which have the `~FigureCanvasAgg.copy_from_bbox` and
-            `~FigureCanvasAgg.restore_region` methods.
 
-        animated_artists : Iterable[Artist]
-            List of the artists to manage
-        """
-        self.canvas = canvas
-        self._bg = None
-        self._artists = []
+class ListTools(ToolBase):
+    '''List all the tools controlled by the `ToolManager`'''
+    # keyboard shortcut
+    default_keymap = 'm'
+    description = 'List Tools'
 
-        for a in animated_artists:
-            self.add_artist(a)
-        # grab the background on every draw
-        self.cid = canvas.mpl_connect("draw_event", self.on_draw)
+    def trigger(self, *args, **kwargs):
+        print('_' * 80)
+        print("{0:12} {1:45} {2}".format(
+            'Name (id)', 'Tool description', 'Keymap'))
+        print('-' * 80)
+        tools = self.toolmanager.tools
+        for name in sorted(tools):
+            if not tools[name].description:
+                continue
+            keys = ', '.join(sorted(self.toolmanager.get_tool_keymap(name)))
+            print("{0:12} {1:45} {2}".format(
+                name, tools[name].description, keys))
+        print('_' * 80)
+        print("Active Toggle tools")
+        print("{0:12} {1:45}".format("Group", "Active"))
+        print('-' * 80)
+        for group, active in self.toolmanager.active_toggle.items():
+            print("{0:12} {1:45}".format(str(group), str(active)))
 
-    def on_draw(self, event):
-        """Callback to register with 'draw_event'."""
-        cv = self.canvas
-        if event is not None:
-            if event.canvas != cv:
-                raise RuntimeError
-        self._bg = cv.copy_from_bbox(cv.figure.bbox)
-        self._draw_animated()
 
-    def add_artist(self, art):
-        """
-        Add an artist to be managed.
+class GroupHideTool(ToolToggleBase):
+    '''Show lines with a given gid'''
+    default_keymap = 'G'
+    description = 'Show by gid'
+    default_toggled = True
 
-        Parameters
-        ----------
-        art : Artist
+    def __init__(self, *args, gid, **kwargs):
+        self.gid = gid
+        super().__init__(*args, **kwargs)
 
-            The artist to be added.  Will be set to 'animated' (just
-            to be safe).  *art* must be in the figure associated with
-            the canvas this class is managing.
+    def enable(self, *args):
+        self.set_lines_visibility(True)
 
-        """
-        if art.figure != self.canvas.figure:
-            raise RuntimeError
-        art.set_animated(True)
-        self._artists.append(art)
+    def disable(self, *args):
+        self.set_lines_visibility(False)
 
-    def _draw_animated(self):
-        """Draw all of the animated artists."""
-        fig = self.canvas.figure
-        for a in self._artists:
-            fig.draw_artist(a)
+    def set_lines_visibility(self, state):
+        for ax in self.figure.get_axes():
+            for line in ax.get_lines():
+                if line.get_gid() == self.gid:
+                    line.set_visible(state)
+        self.figure.canvas.draw()
 
-    def update(self):
-        """Update the screen with animated artists."""
-        cv = self.canvas
-        fig = cv.figure
-        # paranoia in case we missed the draw event,
-        if self._bg is None:
-            self.on_draw(None)
-        else:
-            # restore the background
-            cv.restore_region(self._bg)
-            # draw all of the animated artists
-            self._draw_animated()
-            # update the GUI state
-            cv.blit(fig.bbox)
-        # let the GUI event loop process anything it has to do
-        cv.flush_events()
 
-# make a new figure
-x = np.linspace(0, 2 * np.pi, 100)
-fig, ax = plt.subplots()
-# add a line
-(ln,) = ax.plot(x, np.sin(x), animated=True)
-# add a frame number
-fr_number = ax.annotate(
-    "0",
-    (0, 1),
-    xycoords="axes fraction",
-    xytext=(10, -10),
-    textcoords="offset points",
-    ha="left",
-    va="top",
-    animated=True,
-)
-bm = BlitManager(fig.canvas, [ln, fr_number])
-# make sure our window is on the screen and drawn
-plt.show(block=False)
-plt.pause(.1)
+fig = plt.figure()
+plt.plot([1, 2, 3], gid='mygroup')
+plt.plot([2, 3, 4], gid='unknown')
+plt.plot([3, 2, 1], gid='mygroup')
 
-for j in range(100):
-    # update the artists
-    ln.set_ydata(np.sin(x + (j / 100) * np.pi))
-    fr_number.set_text("frame: {j}".format(j=j))
-    # tell the blitting manager to do it's thing
-    bm.update()
+# Add the custom tools that we created
+fig.canvas.manager.toolmanager.add_tool('List', ListTools)
+fig.canvas.manager.toolmanager.add_tool('Show', GroupHideTool, gid='mygroup')
+
+
+# Add an existing tool to new group `foo`.
+# It can be added as many times as we want
+fig.canvas.manager.toolbar.add_tool('zoom', 'foo')
+
+# Remove the forward button
+fig.canvas.manager.toolmanager.remove_tool('forward')
+
+# To add a custom tool to the toolbar at specific location inside
+# the navigation group
+fig.canvas.manager.toolbar.add_tool('Show', 'navigation', 1)
+
+plt.show()

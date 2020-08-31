@@ -1,5 +1,5 @@
 from utils import CURRENTDATE
-from widget import ChecklistBox, RadioBox
+from widget import ChecklistBox, RadioBox, BetterButton, BetterEntry
 
 import tkinter as tk
 import tkinter.font as tkFont
@@ -13,30 +13,47 @@ from matplotlib.backend_bases import key_press_handler
 import numpy as np
 import webbrowser
 from gather_data import PriceBook
-from visualize import Visualizer
+from visualize import LineVisualizer, BarVisualizer
 
 
-class BetterButton(tk.Button):
-    def __init__(self, *args, width=20, height=2, **kwargs):
-        super().__init__(*args, width=width, height=height, **kwargs)
+class FilterFrame(tk.Frame):
+    choices = (["Price", "price"], ["Original Price", "list_price"], ["Discount", "discount"], ["Discount Rate", "discount_rate"])
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+        self.parent = parent
 
-class BetterEntry(tk.Entry):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.bind("<<Paste>>", self.custom_paste)
-        self.bind('<Control-a>', self.select_all)
+        self.ok_button = BetterButton(self, text="Ok", command=self.filter)
+        self.radio_box = RadioBox(self, self.choices, 2)
+        self.upper_bound_label = tk.Label(self, text="Upper")
+        self.lower_bound_label = tk.Label(self, text="Lower")
+        self.upper_bound_entry = BetterEntry(self)
+        self.lower_bound_entry = BetterEntry(self)
 
-    def custom_paste(self, event=None):
-        try:
-            event.widget.delete("sel.first", "sel.last")
-        except:
-            pass
-        event.widget.insert("insert", event.widget.clipboard_get())
-        return "break"
+        self.upper_bound_entry.bind("<Return>", self.filter)
+        self.lower_bound_entry.bind("<Return>", self.filter)
 
-    def select_all(self, event=None):
-        self.select_range(0, 'end')
-        return 'break'
+        self.lower_bound_label.grid(row=0, column=0, padx=10, pady=10)
+        self.upper_bound_label.grid(row=0, column=1, padx=10, pady=10)
+        self.lower_bound_entry.grid(row=1, column=0, padx=10, pady=10)
+        self.upper_bound_entry.grid(row=1, column=1, padx=10, pady=10)
+        self.radio_box.grid(row=0, column=2, rowspan=2, padx=10, pady=10)
+        self.ok_button.grid(row=0, column=3, rowspan=2, padx=10, pady=10)
+
+        self.ok_button.invoke()
+
+    def filter(self, event=None):
+        lower = self.lower_bound_entry.get()
+        upper = self.upper_bound_entry.get()
+        key = self.radio_box.get_checked_items()
+        if lower and upper:
+            constrain = lambda prod: int(upper) >= prod["price"][CURRENTDATE][key] >= int(lower)
+        elif lower:
+            constrain = lambda prod: prod["price"][CURRENTDATE][key] >= int(lower)
+        elif upper:
+            constrain = lambda prod: int(upper) >= prod["price"][CURRENTDATE][key]
+        else:
+            constrain = lambda prod: True
+        self.parent.filter_then_plot(constrain, key)
 
 
 class DetailWindow(tk.Toplevel):
@@ -46,7 +63,7 @@ class DetailWindow(tk.Toplevel):
         self.prod = price_book[prod_id]
         self.wm_title(self.prod["name"])
 
-        self.small_visualizer = Visualizer(self, None)
+        self.small_visualizer = LineVisualizer(self, None)
         self.info_frame = tk.Frame(self)
 
         date = []
@@ -176,46 +193,35 @@ class GraphFrame(tk.Frame):
         super().__init__(parent, *args, **kwargs)
         self.parent = parent
         
-        self.visualizer_frame = Visualizer(parent=self, price_book=price_book)
-        choices = (["Price", "price"], ["Original Price", "list_price"], ["Discount", "discount"], ["Discount Rate", "discount_rate"])
-        self.ok_button = BetterButton(self, text="Ok", command=self.filter)
-        self.radio_box = RadioBox(self, choices, 2)
-        self.upper_bound_label = tk.Label(self, text="Upper")
-        self.lower_bound_label = tk.Label(self, text="Lower")
-        self.upper_bound_entry = BetterEntry(self)
-        self.lower_bound_entry = BetterEntry(self)
-
-        self.upper_bound_entry.bind("<Return>", self.filter)
-        self.lower_bound_entry.bind("<Return>", self.filter)
+        self.visualizer_frame = LineVisualizer(parent=self, price_book=price_book)
+        self.filter_frame = FilterFrame(parent=self)
 
         for i in range(4):
             tk.Grid.columnconfigure(self, i, weight=1)
         tk.Grid.rowconfigure(self, 0, weight=1)
 
-        self.visualizer_frame.grid(row=0, column=0, columnspan=4, sticky="nswe")
-        self.lower_bound_label.grid(row=1, column=0, padx=10, pady=10)
-        self.upper_bound_label.grid(row=1, column=1, padx=10, pady=10)
-        self.lower_bound_entry.grid(row=2, column=0, padx=10, pady=10)
-        self.upper_bound_entry.grid(row=2, column=1, padx=10, pady=10)
-        self.radio_box.grid(row=1, column=2, rowspan=2, padx=10, pady=10)
-        self.ok_button.grid(row=1, column=3, rowspan=2, padx=10, pady=10)
+        # self.visualizer_frame.grid(row=0, column=0, sticky="nswe")
+        # self.filter_frame.grid(row=1, column=0)
+        self.visualizer_frame.pack(fill="both", expand=True)
+        self.filter_frame.pack(fill="x")
 
-        self.ok_button.invoke()
-
-    def filter(self, event=None):
-        lower = self.lower_bound_entry.get()
-        upper = self.upper_bound_entry.get()
-        key = self.radio_box.get_checked_items()
-        if lower and upper:
-            constrain = lambda prod: int(upper) >= prod["price"][CURRENTDATE][key] >= int(lower)
-        elif lower:
-            constrain = lambda prod: prod["price"][CURRENTDATE][key] >= int(lower)
-        elif upper:
-            constrain = lambda prod: int(upper) >= prod["price"][CURRENTDATE][key]
-        else:
-            constrain = lambda prod: True
+    def filter_then_plot(self, constrain, key):
         self.visualizer_frame.plot_data_with_constrain(constrain, key)
 
+
+class BarFrame(tk.Frame):
+    def __init__(self, parent, *args, **kwargs):
+        super().__init__(parent, *args, **kwargs)
+        self.parent = parent
+
+        self.bar_visualizer_frame = BarVisualizer(parent=self, price_book=price_book)
+        self.filter_frame = FilterFrame(parent=self)
+
+        self.bar_visualizer_frame.pack(fill="both", expand=True)
+        self.filter_frame.pack(fill="x")
+
+    def filter_then_plot(self, constrain, key):
+        self.bar_visualizer_frame.plot_data_with_constrain(constrain, key)
 
 class MainApplication(ttk.Notebook):
     def __init__(self, parent, *args, **kwargs):
@@ -237,11 +243,14 @@ class MainApplication(ttk.Notebook):
         s.theme_use("MyStyle")
         bg = "#EEEEEE"
 
-        self.edit_frame = EditFrame(self, background=bg)
+        self.bar_frame = BarFrame(self, background=bg)
         self.graph_frame = GraphFrame(self, background=bg)
+        self.edit_frame = EditFrame(self, background=bg)
+
+        self.add(self.bar_frame, text="Bar View")
         self.add(self.graph_frame, text="Graph")
-        self.pack(padx=20, pady=20, expand=True, fill="both")
         self.add(self.edit_frame, text="Edit")
+
         self.pack(padx=20, pady=20, expand=True, fill="both")
 
 
