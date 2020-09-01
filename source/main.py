@@ -148,7 +148,7 @@ class EditFrame(tk.Frame):
             if CURRENTDATE in prod["price"]:
                 text = " {} - {} | {}".format(prod["name"], prod["author"], format(prod["price"][CURRENTDATE]["price"], ','))
             self.check_box.update_text_cb(cb_id=cb_id, text=text)
-        self.parent.graph_frame.visualizer_frame.update_graph()
+        self.parent.update_graph()
         self.update_status_label("Update price book done")
 
     def insert(self):
@@ -162,7 +162,7 @@ class EditFrame(tk.Frame):
             self.check_box.insert(text=text, cb_id=prod_id, onvalue=prod_id, offvalue="")
 
             self.update_status_label("Insert done")
-            self.parent.graph_frame.visualizer_frame.update_graph()
+            self.parent.update_graph()
         else:
             self.update_status_label("Already inserted")
 
@@ -182,7 +182,7 @@ class EditFrame(tk.Frame):
 
         if count != 0:
             self.update_status_label("Delete {} items".format(count))
-            self.parent.graph_frame.visualizer_frame.update_graph()
+            self.parent.update_graph()
 
     def view_prod_detail(self, prod_id):
         win = DetailWindow(self, prod_id)
@@ -223,6 +223,7 @@ class BarFrame(tk.Frame):
     def filter_then_plot(self, constrain, key):
         self.bar_visualizer_frame.plot_data_with_constrain(constrain, key)
 
+
 class MainApplication(ttk.Notebook):
     def __init__(self, parent, *args, **kwargs):
         super().__init__(parent, *args, **kwargs)
@@ -252,6 +253,10 @@ class MainApplication(ttk.Notebook):
         self.add(self.edit_frame, text="Edit")
 
         self.pack(padx=20, pady=20, expand=True, fill="both")
+    
+    def update_graph(self):
+        self.graph_frame.visualizer_frame.update_graph()
+        self.bar_frame.bar_visualizer_frame.update_graph()
 
 
 if __name__ == "__main__":

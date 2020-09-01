@@ -100,11 +100,11 @@ class LineVisualizer(Visualizer):
             try:
                 if self.constrain(prod):
                     date = matplotlib.dates.date2num([datetime.datetime.strptime(d, '%d-%m-%Y') for d in prod["price"].keys()])
-                    price = [k[self.key] for k in prod["price"].values()]
+                    yval = [k[self.key] for k in prod["price"].values()]
 
-                    self.sub_graph.plot_date(date, price, '-', marker="o", label=prod["name"])
+                    self.sub_graph.plot_date(date, yval, '-', marker="o", label=prod["name"])
                     self.book_url[prod["name"]] = self.price_book.data[prod_id]["url_path"]
-                    for x,y in zip(date, price):
+                    for x,y in zip(date, yval):
                         self.sub_graph.annotate(reformat_large_tick_values(y), (x, y), textcoords="offset points", xytext=(0, 5), ha='center')
             except:
                 pass
@@ -146,15 +146,20 @@ class BarVisualizer(Visualizer):
         if not (m <= self.width / 2  or (1 - self.width / 2) <= m):
             return ""
         index = int(x + self.width / 2)
-        name = self.sub_graph.containers[index].get_label()
-        p = self.sub_graph.containers[index].patches[0].get_height()
+        try:
+            name = self.sub_graph.containers[index].get_label()
+            p = self.sub_graph.containers[index].patches[0].get_height()
 
-        return "{} | {}".format(name, reformat_large_tick_values(p))
+            return "{} | {}".format(name, reformat_large_tick_values(p))
+        except:
+            return ""
 
     def plot_data_with_constrain(self, constrain, key, date=None):
         super().init_chart(constrain, key)
         if date is None:
             date = CURRENTDATE
+        prev_date = datetime.datetime.strptime(date, "%d-%m-%Y") - datetime.timedelta(days=1)
+        prev_date = prev_date.strftime("%d-%m-%Y")
 
         self.sub_graph.set_title(date)
         # Plot sorted data by key so that line and legend have the same order
@@ -162,10 +167,28 @@ class BarVisualizer(Visualizer):
             try:
                 if self.constrain(prod):
                     name = prod["name"]
-                    price = prod["price"][date][key]
-                    self.sub_graph.bar(name, price, width=self.width, label=name)
+                    yval = prod["price"][date][self.key]
+                    try:
+                        prev_yval = prod["price"][prev_date][self.key]
+                        delta_yval = yval - prev_yval
+                    except:
+                        delta_yval = 0
+                    # Valu increase
+                    if delta_yval > 0:
+                        self.sub_graph.bar(name, prev_yval, width=self.width, label=name)
+                        self.sub_graph.bar(name, delta_yval, color='r', width=self.width, bottom=prev_yval)
+                        self.sub_graph.annotate(reformat_large_tick_values(yval), (name, yval), textcoords="offset points", xytext=(0, 10), ha='center')
+                    # Value decrease
+                    elif delta_yval < 0:
+                        self.sub_graph.bar(name, yval, width=self.width, label=name)
+                        self.sub_graph.bar(name, -1*delta_yval, color='g', width=self.width, bottom=yval)
+                        self.sub_graph.annotate(reformat_large_tick_values(yval), (name, prev_yval), textcoords="offset points", xytext=(0, 10), ha='center')
+                    # Value unchange
+                    else:
+                        self.sub_graph.bar(name, yval, width=self.width, label=name)
+                        self.sub_graph.annotate(reformat_large_tick_values(yval), (name, yval), textcoords="offset points", xytext=(0, 10), ha='center')
+
                     self.book_url[name] = self.price_book.data[prod_id]["url_path"]
-                    self.sub_graph.annotate(reformat_large_tick_values(price), (name, price), textcoords="offset points", xytext=(0, 10), ha='center')
             except:
                 pass
 

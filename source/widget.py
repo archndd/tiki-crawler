@@ -115,6 +115,7 @@ class ChecklistBox(tk.Frame):
         cb.destroy()
         del self.boxes[cb_id]
 
+
 class RadioBox(tk.Frame):
     def __init__(self, parent, choices, choice_per_col=1, **kwargs):
         bg = parent.cget("background")
