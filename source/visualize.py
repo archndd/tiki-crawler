@@ -121,7 +121,7 @@ class LineVisualizer(Visualizer):
         self.canvas.mpl_connect('pick_event', self.on_click)
 
     def plot_data(self, xa, ya, xname="Date", yname="Price"):
-        self.figure.subplots_adjust(left=0.075, right=0.975, bottom=0.05, top=0.95)
+        self.figure.subplots_adjust(left=0.075, right=0.975, bottom=0.08, top=0.95)
         self.sub_graph.clear()
         box = self.sub_graph.get_position()
 
@@ -147,8 +147,8 @@ class BarVisualizer(Visualizer):
             return ""
         index = int(x + self.width / 2)
         try:
-            name = self.sub_graph.containers[index].get_label()
-            p = self.sub_graph.containers[index].patches[0].get_height()
+            name = self.bar_prod[index][0]
+            p = self.bar_prod[index][1]
 
             return "{} | {}".format(name, reformat_large_tick_values(p))
         except:
@@ -156,12 +156,23 @@ class BarVisualizer(Visualizer):
 
     def plot_data_with_constrain(self, constrain, key, date=None):
         super().init_chart(constrain, key)
+        self.bar_prod = []
+
         if date is None:
             date = CURRENTDATE
         prev_date = datetime.datetime.strptime(date, "%d-%m-%Y") - datetime.timedelta(days=1)
         prev_date = prev_date.strftime("%d-%m-%Y")
 
         self.sub_graph.set_title(date)
+
+        # Green is better and red is worse
+        if key == "price":
+            pos_color = "r"
+            neg_color = "g"
+        else:
+            pos_color = "g"
+            neg_color = "r"
+
         # Plot sorted data by key so that line and legend have the same order
         for prod_id, prod in sorted(self.price_book.data.items(), key=lambda prod: prod[1]["price"][CURRENTDATE][self.key], reverse=True):
             try:
@@ -175,19 +186,20 @@ class BarVisualizer(Visualizer):
                         delta_yval = 0
                     # Valu increase
                     if delta_yval > 0:
-                        self.sub_graph.bar(name, prev_yval, width=self.width, label=name)
-                        self.sub_graph.bar(name, delta_yval, color='r', width=self.width, bottom=prev_yval)
+                        self.sub_graph.bar(name, prev_yval, width=self.width, label=name, picker=True)
+                        self.sub_graph.bar(name, delta_yval, color=pos_color, width=self.width, bottom=prev_yval, picker=True)
                         self.sub_graph.annotate(reformat_large_tick_values(yval), (name, yval), textcoords="offset points", xytext=(0, 10), ha='center')
                     # Value decrease
                     elif delta_yval < 0:
-                        self.sub_graph.bar(name, yval, width=self.width, label=name)
-                        self.sub_graph.bar(name, -1*delta_yval, color='g', width=self.width, bottom=yval)
+                        self.sub_graph.bar(name, yval, width=self.width, label=name, picker=True)
+                        self.sub_graph.bar(name, -1*delta_yval, color=neg_color, width=self.width, bottom=yval, picker=True)
                         self.sub_graph.annotate(reformat_large_tick_values(yval), (name, prev_yval), textcoords="offset points", xytext=(0, 10), ha='center')
                     # Value unchange
                     else:
-                        self.sub_graph.bar(name, yval, width=self.width, label=name)
+                        self.sub_graph.bar(name, yval, width=self.width, label=name, picker=True)
                         self.sub_graph.annotate(reformat_large_tick_values(yval), (name, yval), textcoords="offset points", xytext=(0, 10), ha='center')
 
+                    self.bar_prod.append((name, yval))
                     self.book_url[name] = self.price_book.data[prod_id]["url_path"]
             except:
                 pass
@@ -197,12 +209,15 @@ class BarVisualizer(Visualizer):
         self.sub_graph.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(reformat_large_tick_values))
 
         legend = self.sub_graph.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-        # TODO: fix legend
-        # for line in legend.get_patches():
-        #     line.set_picker(True)
 
         self.canvas.draw()
         self.canvas.mpl_connect('pick_event', self.on_click)
+
+    def on_click(self, event=None):
+        x = event.artist.get_x()
+        index = int(x + self.width / 2)
+        name = self.bar_prod[index][0]
+        webbrowser.open("https://tiki.vn/{}".format(self.book_url[name]))
 
 
 if __name__ == "__main__": 

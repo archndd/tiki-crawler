@@ -81,9 +81,9 @@ class DetailWindow(tk.Toplevel):
         self.view_button = BetterButton(self.info_frame, text="View this on browser", command=self.view_on_browser)
 
         self.thumbnail_label.grid(row=0, rowspan=2, column=0)
-        self.name_label.grid(row=0, column=1)
-        self.producer_label.grid(row=1, column=1, sticky="w")
-        self.view_button.grid(row=1, column=2)
+        self.name_label.grid(row=0, column=1, columnspan=2, sticky='w', padx=10, pady=5)
+        self.producer_label.grid(row=1, column=1, sticky="w", padx=10, pady=5)
+        self.view_button.grid(row=1, column=2, padx=10, pady=5)
 
         self.info_frame.pack(fill="x", expand=False)
         self.small_visualizer.pack(fill="both", expand=True)
